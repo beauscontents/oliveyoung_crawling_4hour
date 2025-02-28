@@ -19,20 +19,18 @@ def crawl_oliveyoung_ranking(category_name, category_id=""):
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument("--headless")  # 창 없이 실행
 
-    # 현재 디렉토리에 있는 chromedriver-linux64 파일의 절대 경로 지정 (실행 권한 확인 필수)
-    driver_path = os.path.abspath("chromedriver-linux64")
+    # 명시적 경로 지정: chromedriver-linux64 파일의 절대경로
+    driver_path = "/home/ubuntu/oliveyoung_crawling_4hour/chromedriver-linux64"
     service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
-        if category_id == "":
-            url = base_url
-        else:
-            url = base_url
-            driver.get(url)
-            time.sleep(3)
+        # URL 로드
+        driver.get(base_url)
+        time.sleep(3)
 
-            # 카테고리 버튼 클릭 (XPath 매핑)
+        # category_id가 있는 경우 카테고리 버튼 클릭 처리
+        if category_id:
             category_xpath = {
                 "스킨케어": '/html/body/div[3]/div[8]/div[2]/div[1]/ul/li[2]/button',
                 "마스크팩": '/html/body/div[3]/div[8]/div[2]/div[1]/ul/li[3]/button',
@@ -108,38 +106,32 @@ def save_to_csv(data_dict):
     for category_name, data in data_dict.items():
         df = pd.DataFrame(data)
         file_name = f'{category_name}_rankings.csv'
-
         try:
             existing_df = pd.read_csv(file_name)
             df = pd.concat([existing_df, df]).drop_duplicates(subset=['날짜', '상품명'], keep='last')
         except FileNotFoundError:
             pass
-
         df.to_csv(file_name, index=False)
         print(f"✅ {category_name} 데이터를 {file_name}에 저장 완료!")
 
-# 순위 변화 그래프
+# 순위 변화 그래프 함수
 def plot_rank_trend(category_name):
     file_name = f'{category_name}_rankings.csv'
-    
     try:
         df = pd.read_csv(file_name)
         df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
         df = df.dropna(subset=['순위'])
-
         plt.figure(figsize=(12, 6))
         for product in df['상품명'].unique():
             product_data = df[df['상품명'] == product]
             plt.plot(product_data['날짜'], product_data['순위'], marker='o', label=product)
-
-        plt.gca().invert_yaxis()  # 순위 낮을수록 좋은 구조 반영
+        plt.gca().invert_yaxis()
         plt.title(f'{category_name} 순위 변화')
         plt.xlabel('날짜')
         plt.ylabel('순위')
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.show()
-
     except FileNotFoundError:
         print(f"⚠️ {file_name} 파일이 없습니다. 먼저 데이터를 수집하세요.")
 
@@ -164,4 +156,4 @@ if __name__ == "__main__":
     if results:
         save_to_csv(results)
 
-    plot_rank_trend("스킨케어")  # 특정 카테고리 그래프 표시
+    plot_rank_trend("스킨케어")
