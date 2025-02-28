@@ -186,6 +186,6 @@ if __name__ == "__main__":
     ]
     subject = "4시간마다 전송되는 올리브영 크롤링 데이터"
     body = "첨부된 CSV 파일은 최신 올리브영 상품 순위 데이터입니다."
-    recipients = ["beauscontents@beaus.co.kr"]  # 수신자 이메일 목록
+    recipients = ["beauscontents@gmail.com"]  # 수신자 이메일 목록
 
     send_email_with_attachments(subject, body, recipients, attachments)
