@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 
 os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
+plt.rc('font', family='NanumGothic')
 
 # 크롤링 함수
 def crawl_oliveyoung_ranking(category_name, category_id=""):
