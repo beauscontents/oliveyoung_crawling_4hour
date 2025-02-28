@@ -20,7 +20,7 @@ def crawl_oliveyoung_ranking(category_name, category_id=""):
     options.add_argument("--headless")  # 창 없이 실행
 
     # 명시적 경로 지정: chromedriver-linux64 파일의 절대경로
-    driver_path = "/home/ubuntu/oliveyoung_crawling_4hour/chromedriver-linux64"
+    driver_path = "/home/ubuntu/oliveyoung_crawling_4hour/chromedriver-linux64/chromedriver"
     service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=options)
 
