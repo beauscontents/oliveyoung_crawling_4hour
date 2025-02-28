@@ -7,7 +7,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 
 # 크롤링 함수
@@ -20,8 +19,9 @@ def crawl_oliveyoung_ranking(category_name, category_id=""):
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument("--headless")  # 창 없이 실행
 
-    # ChromeDriver 자동 설치 및 실행
-    service = Service(ChromeDriverManager().install())
+    # 현재 디렉토리에 있는 chromedriver-linux64 파일의 절대 경로 지정 (실행 권한 확인 필수)
+    driver_path = os.path.abspath("chromedriver-linux64")
+    service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
