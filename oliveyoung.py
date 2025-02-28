@@ -132,8 +132,8 @@ def plot_rank_trend(category_name):
 # === 이메일 전송 함수 ===
 def send_email_with_attachments(subject, body, to_emails, attachments):
     # 발신자 정보 (예시: Gmail)
-    sender_email = "your_email@gmail.com"
-    sender_password = "your_app_password"  # 앱 비밀번호 사용
+    sender_email = "beauscontents@gmail.com"
+    sender_password = "obktouclpxkxvltc"  # 앱 비밀번호 사용
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = sender_email
@@ -186,6 +186,6 @@ if __name__ == "__main__":
     ]
     subject = "4시간마다 전송되는 올리브영 크롤링 데이터"
     body = "첨부된 CSV 파일은 최신 올리브영 상품 순위 데이터입니다."
-    recipients = ["recipient@example.com"]  # 수신자 이메일 목록
+    recipients = ["ceo@beaus.co.kr"]  # 수신자 이메일 목록
 
     send_email_with_attachments(subject, body, recipients, attachments)
