@@ -13,6 +13,7 @@ def crawl_oliveyoung_ranking(category_name, category_id=""):
     options = Options()
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
+    options.add_argument("--headless")  # 창 없이 실행하려면
     driver = webdriver.Chrome(options=options)
 
     if category_id == "":
