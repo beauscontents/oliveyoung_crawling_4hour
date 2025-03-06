@@ -19,7 +19,6 @@ from pathlib import Path
 CONFIG = {
     "log_dir": "logs",
     "backup_dir": "csv_backups",
-    "font_path": "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
     "driver_path": "/home/ubuntu/oliveyoung_crawling_4hour/chromedriver-linux64/chromedriver",
     "base_url": "https://www.oliveyoung.co.kr/store/main/getBestList.do",
     "categories": {
@@ -36,7 +35,7 @@ CONFIG = {
     }
 }
 
-# === ✅ Logging Setup ===
+# === ✅ Logging + 터미널 출력 설정 ===
 def setup_logging():
     Path(CONFIG["log_dir"]).mkdir(exist_ok=True)
     log_filename = f"{CONFIG['log_dir']}/{datetime.now().strftime('%Y-%m-%d')}_oliveyoung.log"
@@ -46,7 +45,7 @@ def setup_logging():
         format="%(asctime)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
-    logging.info("📌 프로그램 시작!")
+    print("📌 프로그램 시작!")
     os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
 
 # === ✅ Web Crawler ===
@@ -59,7 +58,9 @@ class OliveYoungCrawler:
         self.service = Service(CONFIG["driver_path"])
 
     def crawl_category(self, category_name: str) -> Optional[List[Dict]]:
+        print(f"🔍 {category_name} 크롤링 시작...")
         logging.info(f"🔍 {category_name} 크롤링 시작...")
+
         driver = None
         try:
             driver = webdriver.Chrome(service=self.service, options=self.options)
@@ -76,6 +77,7 @@ class OliveYoungCrawler:
             product_list = soup.select('ul.cate_prd_list > li')[:10]
             
             if not product_list:
+                print(f"⚠️ {category_name}에 대한 상품이 없습니다.")
                 logging.warning(f"⚠️ {category_name}에 대한 상품이 없습니다.")
                 return None
 
@@ -90,56 +92,29 @@ class OliveYoungCrawler:
                 for item in product_list
             ]
             
+            print(f"✅ {category_name} 크롤링 완료!")
             logging.info(f"✅ {category_name} 크롤링 완료!")
             return rankings
 
         except WebDriverException as e:
+            print(f"❌ {category_name} WebDriver 오류: {e}")
             logging.error(f"❌ {category_name} WebDriver 오류: {e}")
             return None
         except Exception as e:
+            print(f"❌ {category_name} 크롤링 중 오류 발생: {e}")
             logging.error(f"❌ {category_name} 크롤링 중 오류 발생: {e}")
             return None
         finally:
             if driver:
                 driver.quit()
 
-# === ✅ Data Handler ===
-class DataHandler:
-    @staticmethod
-    def save_to_csv(data_dict: Dict[str, List[Dict]]) -> List[str]:
-        logging.info("📂 CSV 저장 시작...")
-        Path(CONFIG["backup_dir"]).mkdir(exist_ok=True)
-        csv_files = []
-
-        for category_name, data in data_dict.items():
-            if not data:
-                continue
-                
-            file_name = f'{category_name}_rankings.csv'
-            backup_file = Path(CONFIG["backup_dir"]) / f"{category_name}_rankings_{datetime.now().strftime('%Y%m%d%H%M')}.csv"
-            
-            df_new = pd.DataFrame(data)
-            try:
-                df_existing = pd.read_csv(file_name)
-                shutil.copy(file_name, backup_file)
-                logging.info(f"🗂 기존 CSV 백업 완료: {backup_file}")
-                df_combined = pd.concat([df_existing, df_new], ignore_index=True)
-            except FileNotFoundError:
-                logging.warning(f"⚠️ 기존 CSV 없음, 새로 생성: {file_name}")
-                df_combined = df_new
-
-            df_combined.to_csv(file_name, index=False, encoding='utf-8-sig')
-            csv_files.append(file_name)
-            logging.info(f"✅ {category_name} 데이터 저장 완료!")
-        
-        return csv_files
-
-# === ✅ Email Sender ===
+# === ✅ Email Sender (터미널 출력 포함) ===
 class EmailSender:
     @staticmethod
     def send_email(subject: str, body: str, attachments: List[str]):
+        print("📧 이메일 전송 시작...")
         logging.info("📧 이메일 전송 시작...")
-        
+
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = CONFIG["email"]["sender"]
@@ -156,21 +131,23 @@ class EmailSender:
                         subtype="octet-stream",
                         filename=path.name
                     )
+                print(f"📎 첨부 파일 추가: {file_path}")
                 logging.info(f"📎 첨부 파일 추가: {file_path}")
 
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
                 smtp.login(CONFIG["email"]["sender"], CONFIG["email"]["password"])
                 smtp.send_message(msg)
+            print("✅ 이메일 전송 성공!")
             logging.info("✅ 이메일 전송 성공!")
         except Exception as e:
+            print(f"❌ 이메일 전송 실패: {e}")
             logging.error(f"❌ 이메일 전송 실패: {e}")
 
-# === ✅ Main Execution ===
+# === ✅ Main Execution (터미널 출력) ===
 def main():
     setup_logging()
     crawler = OliveYoungCrawler()
-    data_handler = DataHandler()
     email_sender = EmailSender()
 
     results = {
@@ -180,13 +157,15 @@ def main():
     
     filtered_results = {k: v for k, v in results.items() if v}
     if filtered_results:
-        csv_files = data_handler.save_to_csv(filtered_results)
+        csv_files = [f"{cat}_rankings.csv" for cat in filtered_results if Path(f"{cat}_rankings.csv").exists()]
+        print("📂 크롤링된 CSV 파일 목록:", csv_files)
         email_sender.send_email(
             subject="올리브영 트렌드 분석",
             body="최신 순위 변화 데이터입니다.",
             attachments=csv_files
         )
 
+    print("✅ 프로그램 종료!")
     logging.info("✅ 프로그램 종료!")
 
 if __name__ == "__main__":
