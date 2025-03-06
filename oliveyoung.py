@@ -18,6 +18,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+plt.rcParams['font.family'] = 'NanumGothic'
+
 # === ✅ Configuration Setup ===
 CONFIG = {
     "log_dir": "logs",
