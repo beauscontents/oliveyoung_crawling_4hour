@@ -16,8 +16,15 @@ from email.message import EmailMessage
 # Selenium Manager 비활성화
 os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
 
-# 한글 폰트 설정 (NanumGothic 설치 필요)
-plt.rc('font', family='NanumGothic')
+# 1️⃣ NanumGothic 폰트 경로 설정
+font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"  # Ubuntu 기준
+
+# 2️⃣ 폰트 파일을 직접 등록
+font_prop = fm.FontProperties(fname=font_path)
+plt.rcParams["font.family"] = font_prop.get_name()
+
+# 3️⃣ 한글 적용 여부 확인
+print(f"✅ 한글 폰트 설정 완료: {font_prop.get_name()}")
 
 # === 크롤링 코드 ===
 def crawl_oliveyoung_ranking(category_name, category_id=""):
