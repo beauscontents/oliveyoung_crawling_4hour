@@ -17,14 +17,11 @@ from email.message import EmailMessage
 # Selenium Manager 비활성화
 os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
 
-# 1️⃣ NanumGothic 폰트 경로 설정
+# ✅ 한글 폰트 설정
 font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"  # Ubuntu 기준
-
-# 2️⃣ 폰트 파일을 직접 등록
 font_prop = fm.FontProperties(fname=font_path)
 plt.rcParams["font.family"] = font_prop.get_name()
 
-# 3️⃣ 한글 적용 여부 확인
 print(f"✅ 한글 폰트 설정 완료: {font_prop.get_name()}")
 
 # === 크롤링 코드 ===
@@ -43,10 +40,7 @@ def crawl_oliveyoung_ranking(category_name, category_id=""):
         driver.get(base_url)
         time.sleep(3)
 
-        # 카테고리 선택
-        category_xpath = {
-            "스킨케어": '/html/body/div[3]/div[8]/div[2]/div[1]/ul/li[2]/button'
-        }
+        category_xpath = {"스킨케어": '/html/body/div[3]/div[8]/div[2]/div[1]/ul/li[2]/button'}
         if category_name in category_xpath:
             try:
                 button = driver.find_element(By.XPATH, category_xpath[category_name])
@@ -66,12 +60,12 @@ def crawl_oliveyoung_ranking(category_name, category_id=""):
             return None
 
         rankings = []
-        current_date = datetime.now().strftime('%Y-%m-%d')
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M')  # ✅ 날짜 + 시간 저장
         for item in product_list:
             rank = item.select_one('.thumb_flag.best').text.strip() if item.select_one('.thumb_flag.best') else 'N/A'
             brand = item.select_one('.tx_brand').text.strip() if item.select_one('.tx_brand') else 'N/A'
             name = item.select_one('.tx_name').text.strip() if item.select_one('.tx_name') else 'N/A'
-            rankings.append({'날짜': current_date, '순위': rank, '브랜드': brand, '상품명': name})
+            rankings.append({'날짜': current_time, '순위': rank, '브랜드': brand, '상품명': name})
         return rankings
 
     except Exception as e:
@@ -100,19 +94,6 @@ def save_to_csv(data_dict):
 
         df_existing['날짜'] = pd.to_datetime(df_existing['날짜'])
         df_new['날짜'] = pd.to_datetime(df_new['날짜'])
-        latest_date = df_existing['날짜'].max()
-        prev_data = df_existing[df_existing['날짜'] == latest_date]
-
-        status_list = []
-        for _, row in df_new.iterrows():
-            prev_entry = prev_data[prev_data['상품명'] == row['상품명']]
-            status_list.append("NEW" if prev_entry.empty else ("변동" if prev_entry['순위'].values[0] != row['순위'] else "유지"))
-        df_new["상태"] = status_list
-
-        disappeared_products = prev_data[~prev_data['상품명'].isin(df_new['상품명'])]
-        if not disappeared_products.empty:
-            disappeared_products["상태"] = "이탈"
-            df_new = pd.concat([df_new, disappeared_products])
 
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
         df_combined = df_combined.drop_duplicates(subset=['날짜', '상품명'], keep='last')
@@ -120,11 +101,6 @@ def save_to_csv(data_dict):
 
 # === 트렌드 그래프 ===
 def plot_rank_trend(category_name):
-    font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"  # NanumGothic 폰트 경로
-    font_prop = fm.FontProperties(fname=font_path)  # 폰트 로드
-    plt.rc("font", family=font_prop.get_name())  # Matplotlib에 적용
-    print(f"✅ 한글 폰트 설정 완료: {font_prop.get_name()}")
-
     file_name = f'{category_name}_rankings.csv'
     try:
         df = pd.read_csv(file_name)
@@ -142,33 +118,30 @@ def plot_rank_trend(category_name):
         plt.title(f'{category_name} 순위 변화')
 
         # ✅ Y축 간격을 1로 설정
-        min_rank = int(df['순위'].min())
-        max_rank = int(df['순위'].max())
+        min_rank = int(df['순위'].min()) if not pd.isna(df['순위'].min()) else 1
+        max_rank = int(df['순위'].max()) if not pd.isna(df['순위'].max()) else 10
         plt.yticks(range(min_rank, max_rank + 1, 1))
 
         # ✅ X축(시간) 간격을 4시간으로 설정
-        plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))  # 4시간 간격
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # 날짜 & 시간 형식
-
-        # ✅ X축 날짜 레이블 가독성 개선
-        plt.xticks(rotation=45, ha='right')  # 45도 회전
+        plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))  
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  
+        plt.xticks(rotation=45, ha='right')
 
         plt.xlabel('날짜 및 시간')
         plt.ylabel('순위')
 
         # ✅ 범례 크기 조절 및 그래프 바깥으로 이동
-        plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=8)
+        plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1), fontsize=7)
 
-        plt.tight_layout()  # 자동으로 레이아웃 조정
+        plt.tight_layout()
         graph_path = f"{category_name}_rank_trend.png"
-        plt.savefig(graph_path, bbox_inches='tight')  # 그래프 저장
+        plt.savefig(graph_path, bbox_inches='tight')  
         print(f"📊 그래프 저장 완료: {graph_path}")
         return graph_path
 
     except FileNotFoundError:
         print(f"⚠️ {file_name} 파일이 없습니다.")
         return None
-
 
 # === 이메일 전송 ===
 def send_email_with_attachments(subject, body, to_emails, attachments):
@@ -198,9 +171,5 @@ if __name__ == "__main__":
     results = {name: crawl_oliveyoung_ranking(name, id) for name, id in categories.items() if crawl_oliveyoung_ranking(name, id)}
     if results:
         save_to_csv(results)
-        attachments = []
-        for category in categories.keys():
-            graph_path = plot_rank_trend(category)
-            if graph_path:
-                attachments.append(graph_path)
+        attachments = [plot_rank_trend(category) for category in categories.keys()]
         send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", ["beauscontents@gmail.com"], attachments)
