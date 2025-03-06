@@ -4,6 +4,7 @@ import shutil
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import matplotlib.dates as mdates
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -119,20 +120,17 @@ def save_to_csv(data_dict):
 
 # === 트렌드 그래프 ===
 def plot_rank_trend(category_name):
-
     font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"  # NanumGothic 폰트 경로
     font_prop = fm.FontProperties(fname=font_path)  # 폰트 로드
-
     plt.rc("font", family=font_prop.get_name())  # Matplotlib에 적용
     print(f"✅ 한글 폰트 설정 완료: {font_prop.get_name()}")
 
-    
     file_name = f'{category_name}_rankings.csv'
     try:
         df = pd.read_csv(file_name)
-        df['날짜'] = pd.to_datetime(df['날짜'])
-        df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
-        df = df.dropna(subset=['순위'])
+        df['날짜'] = pd.to_datetime(df['날짜'])  # 날짜 변환
+        df['순위'] = pd.to_numeric(df['순위'], errors='coerce')  # 숫자로 변환
+        df = df.dropna(subset=['순위'])  # 순위가 없는 데이터 제거
 
         plt.figure(figsize=(12, 6))
 
@@ -143,9 +141,19 @@ def plot_rank_trend(category_name):
         plt.gca().invert_yaxis()  # 1등이 위로 가게 설정
         plt.title(f'{category_name} 순위 변화')
 
+        # ✅ Y축 간격을 1로 설정
+        min_rank = int(df['순위'].min())
+        max_rank = int(df['순위'].max())
+        plt.yticks(range(min_rank, max_rank + 1, 1))
+
+        # ✅ X축(시간) 간격을 4시간으로 설정
+        plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))  # 4시간 간격
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))  # 날짜 & 시간 형식
+
         # ✅ X축 날짜 레이블 가독성 개선
-        plt.xticks(rotation=45, ha='right')  # 날짜 회전 (45도)
-        plt.xlabel('날짜')
+        plt.xticks(rotation=45, ha='right')  # 45도 회전
+
+        plt.xlabel('날짜 및 시간')
         plt.ylabel('순위')
 
         # ✅ 범례 크기 조절 및 그래프 바깥으로 이동
@@ -160,6 +168,7 @@ def plot_rank_trend(category_name):
     except FileNotFoundError:
         print(f"⚠️ {file_name} 파일이 없습니다.")
         return None
+
 
 # === 이메일 전송 ===
 def send_email_with_attachments(subject, body, to_emails, attachments):
