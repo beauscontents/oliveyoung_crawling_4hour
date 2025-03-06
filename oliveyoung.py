@@ -119,18 +119,25 @@ def plot_rank_trend(category_name):
         df = df.dropna(subset=['순위'])
 
         plt.figure(figsize=(12, 6))
+
         for product in df['상품명'].unique():
             product_data = df[df['상품명'] == product]
             plt.plot(product_data['날짜'], product_data['순위'], marker='o', label=product)
 
-        plt.gca().invert_yaxis()
+        plt.gca().invert_yaxis()  # 1등이 위로 가게 설정
         plt.title(f'{category_name} 순위 변화')
+
+        # ✅ X축 날짜 레이블 가독성 개선
+        plt.xticks(rotation=45, ha='right')  # 날짜 회전 (45도)
         plt.xlabel('날짜')
         plt.ylabel('순위')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.tight_layout()
+
+        # ✅ 범례 크기 조절 및 그래프 바깥으로 이동
+        plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=8)
+
+        plt.tight_layout()  # 자동으로 레이아웃 조정
         graph_path = f"{category_name}_rank_trend.png"
-        plt.savefig(graph_path)
+        plt.savefig(graph_path, bbox_inches='tight')  # 그래프 저장
         print(f"📊 그래프 저장 완료: {graph_path}")
         return graph_path
 
