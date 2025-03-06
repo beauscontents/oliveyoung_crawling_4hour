@@ -144,6 +144,7 @@ def plot_rank_trend(category_name):
         return None
 
 # === 이메일 전송 ===
+# === 이메일 전송 (CSV + 그래프 포함) ===
 def send_email_with_attachments(subject, body, to_emails, attachments):
     sender_email = "beauscontents@gmail.com"
     sender_password = "obktouclpxkxvltc"
@@ -152,11 +153,13 @@ def send_email_with_attachments(subject, body, to_emails, attachments):
     msg["From"] = sender_email
     msg["To"] = ", ".join(to_emails)
     msg.set_content(body)
+
     for file_path in attachments:
         if os.path.exists(file_path):
             with open(file_path, "rb") as f:
                 file_data = f.read()
             msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=os.path.basename(file_path))
+
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(sender_email, sender_password)
@@ -165,11 +168,25 @@ def send_email_with_attachments(subject, body, to_emails, attachments):
     except Exception as e:
         print("이메일 전송 실패:", e)
 
-# === 메인 실행 ===
+# === 메인 실행 (CSV + 그래프 파일 모두 첨부) ===
 if __name__ == "__main__":
     categories = {"스킨케어": "10000010001"}
     results = {name: crawl_oliveyoung_ranking(name, id) for name, id in categories.items() if crawl_oliveyoung_ranking(name, id)}
+
     if results:
         save_to_csv(results)
-        attachments = [plot_rank_trend(category) for category in categories.keys()]
-        send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", ["beauscontents@gmail.com"], attachments)
+
+        attachments = []
+        for category in categories.keys():
+            csv_file = f"{category}_rankings.csv"  # ✅ CSV 파일 추가
+            graph_path = plot_rank_trend(category)
+            attachments.append(csv_file)
+            if graph_path:
+                attachments.append(graph_path)
+
+        send_email_with_attachments(
+            "올리브영 트렌드 분석", 
+            "최신 순위 변화 데이터입니다.", 
+            ["beauscontents@gmail.com"], 
+            attachments
+        )
