@@ -57,7 +57,6 @@ def setup_logging():
     )
     print("📌 프로그램 시작!")
     os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
-
 # === ✅ 트렌드 그래프 생성 ===
 def plot_rank_trend(category_name: str) -> Optional[str]:
     file_name = f"{category_name}_rankings.csv"
@@ -67,7 +66,13 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
         return None
 
     df = pd.read_csv(file_name)
-    df['날짜'] = pd.to_datetime(df['날짜'])
+
+    # ✅ 날짜 변환 시 format='mixed' 옵션 추가하여 오류 방지
+    df['날짜'] = pd.to_datetime(df['날짜'], format='mixed', errors='coerce')
+
+    # ✅ 변환 실패한 NaT 값 제거
+    df = df.dropna(subset=['날짜'])
+
     df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
     df = df.dropna(subset=['순위'])
 
@@ -93,6 +98,7 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
     print(f"📊 그래프 저장 완료: {graph_path}")
     logging.info(f"📊 그래프 저장 완료: {graph_path}")
     return graph_path
+
 
 # === ✅ Email Sender (CSV + 그래프 첨부) ===
 class EmailSender:
