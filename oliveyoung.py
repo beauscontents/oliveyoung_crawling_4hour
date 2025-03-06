@@ -5,9 +5,6 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import matplotlib.dates as mdates
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -35,15 +32,8 @@ CONFIG = {
         "sender": "beauscontents@gmail.com",
         "password": "obktouclpxkxvltc",
         "recipients": ["beauscontents@gmail.com"]
-    },
-    "font_path": "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+    }
 }
-
-# ✅ 한글 폰트 설정
-font_path = CONFIG["font_path"]
-if os.path.exists(font_path):
-    font_prop = fm.FontProperties(fname=font_path)
-    plt.rcParams["font.family"] = font_prop.get_name()
 
 # === ✅ Logging + 터미널 출력 설정 ===
 def setup_logging():
@@ -58,43 +48,67 @@ def setup_logging():
     print("📌 프로그램 시작!")
     os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
 
-# === ✅ 트렌드 그래프 생성 ===
-def plot_rank_trend(category_name: str) -> Optional[str]:
-    file_name = f"{category_name}_rankings.csv"
-    if not os.path.exists(file_name):
-        print(f"⚠️ {file_name} 파일 없음. 그래프 생성 건너뜀.")
-        logging.warning(f"⚠️ {file_name} 파일 없음. 그래프 생성 건너뜀.")
-        return None
+# === ✅ Web Crawler ===
+class OliveYoungCrawler:
+    def __init__(self):
+        self.options = Options()
+        self.options.add_argument('--no-sandbox')
+        self.options.add_argument('--disable-dev-shm-usage')
+        self.options.add_argument('--headless')
+        self.service = Service(CONFIG["driver_path"])
 
-    df = pd.read_csv(file_name)
-    df['날짜'] = pd.to_datetime(df['날짜'])
-    df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
-    df = df.dropna(subset=['순위'])
+    def crawl_category(self, category_name: str) -> Optional[List[Dict]]:
+        print(f"🔍 {category_name} 크롤링 시작...")
+        logging.info(f"🔍 {category_name} 크롤링 시작...")
 
-    plt.figure(figsize=(12, 6))
-    for product in df['상품명'].unique():
-        product_data = df[df['상품명'] == product]
-        plt.plot(product_data['날짜'], product_data['순위'], marker='o', label=product)
+        driver = None
+        try:
+            driver = webdriver.Chrome(service=self.service, options=self.options)
+            driver.get(CONFIG["base_url"])
+            time.sleep(3)
 
-    plt.gca().invert_yaxis()
-    plt.title(f"{category_name} 순위 변화")
+            xpath = CONFIG["categories"].get(category_name)
+            if xpath:
+                button = driver.find_element(By.XPATH, xpath)
+                driver.execute_script("arguments[0].click();", button)
+                time.sleep(3)
 
-    plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))
-    plt.xticks(rotation=45, ha='right')
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            product_list = soup.select('ul.cate_prd_list > li')[:10]
+            
+            if not product_list:
+                print(f"⚠️ {category_name}에 대한 상품이 없습니다.")
+                logging.warning(f"⚠️ {category_name}에 대한 상품이 없습니다.")
+                return None
 
-    plt.xlabel("날짜 및 시간")
-    plt.ylabel("순위")
-    plt.legend(loc="upper left", bbox_to_anchor=(1.05, 1), fontsize=7)
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+            rankings = [
+                {
+                    '날짜': current_time,
+                    '순위': item.select_one('.thumb_flag.best').text.strip() if item.select_one('.thumb_flag.best') else 'N/A',
+                    '브랜드': item.select_one('.tx_brand').text.strip() if item.select_one('.tx_brand') else 'N/A',
+                    '상품명': item.select_one('.tx_name').text.strip() if item.select_one('.tx_name') else 'N/A'
+                }
+                for item in product_list
+            ]
+            
+            print(f"✅ {category_name} 크롤링 완료!")
+            logging.info(f"✅ {category_name} 크롤링 완료!")
+            return rankings
 
-    plt.tight_layout()
-    graph_path = f"{category_name}_rank_trend.png"
-    plt.savefig(graph_path, bbox_inches="tight")
-    print(f"📊 그래프 저장 완료: {graph_path}")
-    logging.info(f"📊 그래프 저장 완료: {graph_path}")
-    return graph_path
+        except WebDriverException as e:
+            print(f"❌ {category_name} WebDriver 오류: {e}")
+            logging.error(f"❌ {category_name} WebDriver 오류: {e}")
+            return None
+        except Exception as e:
+            print(f"❌ {category_name} 크롤링 중 오류 발생: {e}")
+            logging.error(f"❌ {category_name} 크롤링 중 오류 발생: {e}")
+            return None
+        finally:
+            if driver:
+                driver.quit()
 
-# === ✅ Email Sender (CSV + 그래프 첨부) ===
+# === ✅ Email Sender (터미널 출력 포함) ===
 class EmailSender:
     @staticmethod
     def send_email(subject: str, body: str, attachments: List[str]):
@@ -130,27 +144,26 @@ class EmailSender:
             print(f"❌ 이메일 전송 실패: {e}")
             logging.error(f"❌ 이메일 전송 실패: {e}")
 
-# === ✅ Main Execution (CSV + 그래프 첨부) ===
+# === ✅ Main Execution (터미널 출력) ===
 def main():
     setup_logging()
+    crawler = OliveYoungCrawler()
     email_sender = EmailSender()
 
-    csv_files = [f"{cat}_rankings.csv" for cat in CONFIG["categories"] if os.path.exists(f"{cat}_rankings.csv")]
-    graph_files = [plot_rank_trend(cat) for cat in CONFIG["categories"] if os.path.exists(f"{cat}_rankings.csv")]
-
-    # None 값 제거 (존재하는 파일만 첨부)
-    attachments = [f for f in csv_files + graph_files if f is not None]
-
-    if attachments:
-        print("📂 이메일에 첨부할 파일:", attachments)
+    results = {
+        category: crawler.crawl_category(category)
+        for category in CONFIG["categories"].keys()
+    }
+    
+    filtered_results = {k: v for k, v in results.items() if v}
+    if filtered_results:
+        csv_files = [f"{cat}_rankings.csv" for cat in filtered_results if Path(f"{cat}_rankings.csv").exists()]
+        print("📂 크롤링된 CSV 파일 목록:", csv_files)
         email_sender.send_email(
             subject="올리브영 트렌드 분석",
             body="최신 순위 변화 데이터입니다.",
-            attachments=attachments
+            attachments=csv_files
         )
-    else:
-        print("⚠️ 첨부할 파일이 없습니다.")
-        logging.warning("⚠️ 첨부할 파일이 없습니다.")
 
     print("✅ 프로그램 종료!")
     logging.info("✅ 프로그램 종료!")
