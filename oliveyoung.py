@@ -111,6 +111,14 @@ def save_to_csv(data_dict):
 
 # === 트렌드 그래프 ===
 def plot_rank_trend(category_name):
+
+    font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"  # NanumGothic 폰트 경로
+    font_prop = fm.FontProperties(fname=font_path)  # 폰트 로드
+
+    plt.rc("font", family=font_prop.get_name())  # Matplotlib에 적용
+    print(f"✅ 한글 폰트 설정 완료: {font_prop.get_name()}")
+
+    
     file_name = f'{category_name}_rankings.csv'
     try:
         df = pd.read_csv(file_name)
