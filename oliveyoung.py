@@ -189,4 +189,4 @@ if __name__ == "__main__":
     setup_logging()
     while True:
         schedule.run_pending()
-        time.sleep(60)  # 1분마다 스케줄 확인
+        time.sleep(10)  # 1분마다 스케줄 확인
