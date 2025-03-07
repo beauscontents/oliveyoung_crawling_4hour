@@ -177,12 +177,12 @@ def run_crawling():
     print("✅ 자동 크롤링 완료!")
 
 # === ✅ 스케줄링 (4시간마다 실행) ===
-schedule.every().day.at("09:00").do(run_crawling)
-schedule.every().day.at("13:00").do(run_crawling)
-schedule.every().day.at("17:00").do(run_crawling)
-schedule.every().day.at("21:00").do(run_crawling)
-schedule.every().day.at("01:00").do(run_crawling)
-schedule.every().day.at("05:00").do(run_crawling)
+#schedule.every().day.at("09:00").do(run_crawling)
+#schedule.every().day.at("13:00").do(run_crawling)
+#schedule.every().day.at("17:00").do(run_crawling)
+#schedule.every().day.at("21:00").do(run_crawling)
+#schedule.every().day.at("01:00").do(run_crawling)
+#schedule.every().day.at("05:00").do(run_crawling)
 
 # === ✅ 실행 루프 ===
 if __name__ == "__main__":
