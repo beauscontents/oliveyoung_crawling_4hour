@@ -156,7 +156,7 @@ def crawl_category(driver, category_name, xpath):
         items = soup.select(".prd_info")  # 실제 Olive Young 상품 리스트 셀렉터로 수정 필요
         data = []
         for rank, item in enumerate(items[:10], 1):  # 상위 10개만 가져오기
-            brand = item.select_one(".prd_brand").text.strip() if item.select_one(".prd_brand") else "N/A"
+            brand = item.select_one(".tx_brand").text.strip() if item.select_one(".tx_brand") else "N/A"
             name = item.select_one(".prd_name").text.strip() if item.select_one(".prd_name") else "N/A"
             data.append({
                 "날짜": datetime.now().strftime("%Y-%m-%d %p %I:%M"),
