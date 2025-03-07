@@ -118,8 +118,10 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
         return None
 
     df = pd.read_csv(file_path)
-    df['날짜'] = pd.to_datetime(df['날짜'], format='mixed', errors='coerce')
+    # 날짜 형식을 정확히 인식하도록 format 수정
+    df['날짜'] = pd.to_datetime(df['날짜'], format='%Y-%m-%d %p %I:%M', errors='coerce')
     df = df.dropna(subset=['날짜'])
+
     df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
     df = df.dropna(subset=['순위'])
 
