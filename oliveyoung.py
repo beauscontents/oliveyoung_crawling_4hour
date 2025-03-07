@@ -64,6 +64,30 @@ def setup_logging():
     print("📌 프로그램 시작!")
     os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
 
+# === ✅ 이메일 전송 함수 (send_email_with_attachments) 구현 ===
+def send_email_with_attachments(subject, body, to_emails, attachments):
+    sender_email = "beauscontents@gmail.com"
+    sender_password = "obktouclpxkxvltc"
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = ", ".join(to_emails)
+    msg.set_content(body)
+    for file_path in attachments:
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+            msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=os.path.basename(file_path))
+        else:
+            print(f"첨부 파일 {file_path}이(가) 존재하지 않습니다.")
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(sender_email, sender_password)
+            smtp.send_message(msg)
+        print("이메일 전송 성공!")
+    except Exception as e:
+        print("이메일 전송 실패:", e)
+
 # === ✅ 데이터 저장 (Recursive 구조) ===
 def save_to_csv(category_name: str, data: List[Dict]) -> str:
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
@@ -146,7 +170,7 @@ def run_crawling():
     attachments = csv_files + [g for g in graph_files if g]
     if attachments:
         print("📂 이메일에 첨부할 파일:", attachments)
-        send_email("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", attachments)
+        send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", CONFIG["email"]["recipients"], attachments)
     else:
         print("⚠️ 첨부할 파일이 없습니다.")
 
