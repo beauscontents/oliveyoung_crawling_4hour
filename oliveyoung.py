@@ -23,7 +23,7 @@ CONFIG = {
     "log_dir": "logs",
     "csv_dir": "csv_files",
     "graph_dir": "graphs",
-    "driver_path": "/home/ubuntu/oliveyoung_crawling_4hour/chromedriver-linux64/chromedriver",
+    "driver_path": "/home/ubuntu/Downloads/chromedriver",  # Downloads 폴더로 경로 수정
     "base_url": "https://www.oliveyoung.co.kr/store/main/getBestList.do",
     "categories": {
         "스킨케어": '/html/body/div[3]/div[8]/div[2]/div[1]/ul/li[2]/button',
