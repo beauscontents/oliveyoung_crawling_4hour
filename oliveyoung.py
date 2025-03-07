@@ -187,6 +187,6 @@ def run_crawling():
 # === ✅ 실행 루프 ===
 if __name__ == "__main__":
     setup_logging()
-    while True:
+    #while True:
         #schedule.run_pending()
         #time.sleep(10)  # 1분마다 스케줄 확인
