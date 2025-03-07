@@ -23,7 +23,7 @@ CONFIG = {
     "log_dir": "logs",
     "csv_dir": "csv_files",
     "graph_dir": "graphs",
-    "driver_path": "/home/ubuntu/Downloads/chromedriver",  # Downloads 폴더로 경로 수정
+    "driver_path": "/home/ubuntu/Downloads/chromedriver",  # 이미 올바른 경로
     "base_url": "https://www.oliveyoung.co.kr/store/main/getBestList.do",
     "categories": {
         "스킨케어": '/html/body/div[3]/div[8]/div[2]/div[1]/ul/li[2]/button',
@@ -176,8 +176,8 @@ def run_crawling():
     try:
         options = Options()
         options.add_argument("--headless")  # 백그라운드 실행
-        options.add_argument("--no-sandbox")  # 리눅스 환경에서 필요할 수 있음
-        options.add_argument("--disable-dev-shm-usage")  # 리눅스 환경에서 메모리 문제 방지
+        options.add_argument("--no-sandbox")  # 리눅스 환경에서 필요
+        options.add_argument("--disable-dev-shm-usage")  # 리눅스 메모리 문제 방지
         driver = webdriver.Chrome(service=Service(CONFIG["driver_path"]), options=options)
     except WebDriverException as e:
         print(f"WebDriver 초기화 실패: {e}")
