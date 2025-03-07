@@ -45,11 +45,14 @@ Path(CONFIG["log_dir"]).mkdir(exist_ok=True)
 Path(CONFIG["csv_dir"]).mkdir(exist_ok=True)
 Path(CONFIG["graph_dir"]).mkdir(exist_ok=True)
 
-# ✅ 한글 폰트 설정
+# ✅ 한글 폰트 설정 (한글 깨짐 문제 해결)
 font_path = CONFIG["font_path"]
 if os.path.exists(font_path):
-    font_prop = fm.FontProperties(fname=font_path)
-    plt.rcParams["font.family"] = font_prop.get_name()
+    fm.fontManager.addfont(font_path)
+    plt.rcParams["font.family"] = "NanumGothic"  # 폰트의 실제 이름으로 설정
+    plt.rcParams['axes.unicode_minus'] = False   # 음수 기호 깨짐 방지
+else:
+    print("지정한 폰트 파일이 존재하지 않습니다.")
 
 # === ✅ Logging 설정 ===
 def setup_logging():
