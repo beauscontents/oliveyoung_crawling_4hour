@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import matplotlib.dates as mdates
 from datetime import datetime
+from zoneinfo import ZoneInfo  # 서울 시간대 사용을 위한 모듈 추가
 from typing import Dict, List, Optional
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -158,8 +159,9 @@ def crawl_category(driver, category_name, xpath):
         for rank, item in enumerate(items[:10], 1):  # 상위 10개만 가져오기
             brand = item.select_one(".tx_brand").text.strip() if item.select_one(".tx_brand") else "N/A"
             name = item.select_one(".prd_name").text.strip() if item.select_one(".prd_name") else "N/A"
+            # 서울 시간대로 시간 정보를 설정하여 CSV에 추가
             data.append({
-                "날짜": datetime.now().strftime("%Y-%m-%d %p %I:%M"),
+                "날짜": datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %p %I:%M"),
                 "순위": str(rank),
                 "브랜드": brand,
                 "상품명": name
