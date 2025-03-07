@@ -2,7 +2,7 @@ import os
 import time
 import shutil
 import logging
-import schedule
+#import schedule
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
