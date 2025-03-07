@@ -2,7 +2,6 @@ import os
 import time
 import shutil
 import logging
-#import schedule
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
@@ -64,10 +63,10 @@ def setup_logging():
     print("📌 프로그램 시작!")
     os.environ["SELENIUM_MANAGER_DISABLE"] = "1"
 
-# === ✅ 이메일 전송 함수 (send_email_with_attachments) 구현 ===
+# === ✅ 이메일 전송 함수 ===
 def send_email_with_attachments(subject, body, to_emails, attachments):
-    sender_email = "beauscontents@gmail.com"
-    sender_password = "obktouclpxkxvltc"
+    sender_email = CONFIG["email"]["sender"]
+    sender_password = CONFIG["email"]["password"]
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = sender_email
@@ -80,42 +79,41 @@ def send_email_with_attachments(subject, body, to_emails, attachments):
             msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=os.path.basename(file_path))
         else:
             print(f"첨부 파일 {file_path}이(가) 존재하지 않습니다.")
+            logging.warning(f"첨부 파일 {file_path}이(가) 존재하지 않습니다.")
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(sender_email, sender_password)
             smtp.send_message(msg)
         print("이메일 전송 성공!")
+        logging.info("이메일 전송 성공!")
     except Exception as e:
-        print("이메일 전송 실패:", e)
+        print(f"이메일 전송 실패: {e}")
+        logging.error(f"이메일 전송 실패: {e}")
 
-# === ✅ 데이터 저장 (Recursive 구조) ===
+# === ✅ 데이터 저장 ===
 def save_to_csv(category_name: str, data: List[Dict]) -> str:
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
-    
     df_new = pd.DataFrame(data)
-    
-    # ✅ 기존 데이터와 병합 (중복 제거)
     if os.path.exists(file_path):
         df_existing = pd.read_csv(file_path)
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
         df_combined.drop_duplicates(subset=["날짜", "상품명"], keep="last", inplace=True)
     else:
         df_combined = df_new
-
     df_combined.to_csv(file_path, index=False, encoding="utf-8-sig")
     print(f"📂 CSV 저장 완료: {file_path}")
     logging.info(f"📂 CSV 저장 완료: {file_path}")
     return file_path
 
-# === ✅ 트렌드 그래프 생성 (Recursive 반영) ===
+# === ✅ 트렌드 그래프 생성 ===
 def plot_rank_trend(category_name: str) -> Optional[str]:
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
     if not os.path.exists(file_path):
         print(f"⚠️ {file_path} 파일 없음. 그래프 생성 건너뜀.")
+        logging.warning(f"{file_path} 파일 없음. 그래프 생성 건너뜀.")
         return None
 
     df = pd.read_csv(file_path)
-
     df['날짜'] = pd.to_datetime(df['날짜'], format='mixed', errors='coerce')
     df = df.dropna(subset=['날짜'])
     df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
@@ -128,65 +126,94 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
 
     plt.gca().invert_yaxis()
     plt.title(f"{category_name} 순위 변화")
-
     plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %p %I:%M'))
     plt.xticks(rotation=45, ha='right')
-
     plt.xlabel("날짜 및 시간")
     plt.ylabel("순위")
     plt.legend(loc="upper left", bbox_to_anchor=(1.05, 1), fontsize=7)
-
     plt.tight_layout()
+
     graph_path = f"{CONFIG['graph_dir']}/{category_name}_rank_trend.png"
     plt.savefig(graph_path, bbox_inches="tight")
     print(f"📊 그래프 저장 완료: {graph_path}")
+    logging.info(f"📊 그래프 저장 완료: {graph_path}")
     return graph_path
+
+# === ✅ 카테고리별 크롤링 함수 ===
+def crawl_category(driver, category_name, xpath):
+    try:
+        driver.get(CONFIG["base_url"])
+        time.sleep(2)  # 페이지 로드 대기
+        category_button = driver.find_element(By.XPATH, xpath)
+        category_button.click()
+        time.sleep(2)  # 카테고리 로드 대기
+
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        items = soup.select(".prd_info")  # 실제 Olive Young 상품 리스트 셀렉터로 수정 필요
+        data = []
+        for rank, item in enumerate(items[:10], 1):  # 상위 10개만 가져오기
+            brand = item.select_one(".prd_brand").text.strip() if item.select_one(".prd_brand") else "N/A"
+            name = item.select_one(".prd_name").text.strip() if item.select_one(".prd_name") else "N/A"
+            data.append({
+                "날짜": datetime.now().strftime("%Y-%m-%d %p %I:%M"),
+                "순위": str(rank),
+                "브랜드": brand,
+                "상품명": name
+            })
+        print(f"✅ {category_name} 크롤링 완료: {len(data)}개 항목")
+        logging.info(f"{category_name} 크롤링 완료: {len(data)}개 항목")
+        return data
+    except Exception as e:
+        print(f"{category_name} 크롤링 실패: {e}")
+        logging.error(f"{category_name} 크롤링 실패: {e}")
+        return []
 
 # === ✅ 자동 크롤링 및 데이터 저장 ===
 def run_crawling():
     print("🔄 자동 크롤링 실행 중...")
-
-    # 현재 시간 저장 (오전/오후 표시)
-    current_time = datetime.now().strftime("%Y-%m-%d %p %I:%M")
+    logging.info("자동 크롤링 실행 시작")
+    try:
+        options = Options()
+        options.add_argument("--headless")  # 백그라운드 실행
+        options.add_argument("--no-sandbox")  # 리눅스 환경에서 필요할 수 있음
+        options.add_argument("--disable-dev-shm-usage")  # 리눅스 환경에서 메모리 문제 방지
+        driver = webdriver.Chrome(service=Service(CONFIG["driver_path"]), options=options)
+    except WebDriverException as e:
+        print(f"WebDriver 초기화 실패: {e}")
+        logging.error(f"WebDriver 초기화 실패: {e}")
+        return
 
     csv_files = []
-    for category in CONFIG["categories"]:
-        new_data = [
-            {
-                "날짜": current_time,
-                "순위": "1",  # ✅ 더미 데이터 (실제 크롤링 데이터 삽입 필요)
-                "브랜드": "Sample Brand",
-                "상품명": "Sample Product"
-            }
-        ]
-        csv_path = save_to_csv(category, new_data)
-        csv_files.append(csv_path)
+    try:
+        for category, xpath in CONFIG["categories"].items():
+            new_data = crawl_category(driver, category, xpath)
+            if new_data:  # 데이터가 있을 경우에만 저장
+                csv_path = save_to_csv(category, new_data)
+                csv_files.append(csv_path)
+    except Exception as e:
+        print(f"크롤링 중 오류: {e}")
+        logging.error(f"크롤링 중 오류: {e}")
+    finally:
+        driver.quit()
 
-    # 그래프 생성
-    graph_files = [plot_rank_trend(cat) for cat in CONFIG["categories"] if os.path.exists(f"{CONFIG['csv_dir']}/{cat}_rankings.csv")]
-
-    # ✅ 이메일 전송 (CSV + 그래프 첨부)
-    attachments = csv_files + [g for g in graph_files if g]
-    if attachments:
-        print("📂 이메일에 첨부할 파일:", attachments)
-        send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", CONFIG["email"]["recipients"], attachments)
-    else:
-        print("⚠️ 첨부할 파일이 없습니다.")
+    try:
+        graph_files = [plot_rank_trend(cat) for cat in CONFIG["categories"] if os.path.exists(f"{CONFIG['csv_dir']}/{cat}_rankings.csv")]
+        attachments = csv_files + [g for g in graph_files if g]
+        if attachments:
+            print("📂 이메일에 첨부할 파일:", attachments)
+            send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", CONFIG["email"]["recipients"], attachments)
+        else:
+            print("⚠️ 첨부할 파일이 없습니다.")
+            logging.warning("첨부할 파일이 없습니다.")
+    except Exception as e:
+        print(f"그래프 생성 또는 이메일 전송 중 오류: {e}")
+        logging.error(f"그래프 생성 또는 이메일 전송 중 오류: {e}")
 
     print("✅ 자동 크롤링 완료!")
+    logging.info("자동 크롤링 완료")
 
-# === ✅ 스케줄링 (4시간마다 실행) ===
-#schedule.every().day.at("09:00").do(run_crawling)
-#schedule.every().day.at("13:00").do(run_crawling)
-#schedule.every().day.at("17:00").do(run_crawling)
-#schedule.every().day.at("21:00").do(run_crawling)
-#schedule.every().day.at("01:00").do(run_crawling)
-#schedule.every().day.at("05:00").do(run_crawling)
-
-# === ✅ 실행 루프 ===
+# === ✅ 실행 ===
 if __name__ == "__main__":
     setup_logging()
-    #while True:
-        #schedule.run_pending()
-        #time.sleep(10)  # 1분마다 스케줄 확인
+    run_crawling()
