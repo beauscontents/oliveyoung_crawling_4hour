@@ -50,7 +50,7 @@ Path(CONFIG["graph_dir"]).mkdir(exist_ok=True)
 font_path = CONFIG["font_path"]
 if os.path.exists(font_path):
     fm.fontManager.addfont(font_path)
-    plt.rcParams["font.family"] = "NanumGothic"  # 폰트의 실제 이름으로 설정
+    plt.rcParams["font.family"] = "Malgun Gothic"  # 폰트의 실제 이름으로 설정
     plt.rcParams['axes.unicode_minus'] = False   # 음수 기호 깨짐 방지
 else:
     print("지정한 폰트 파일이 존재하지 않습니다.")
