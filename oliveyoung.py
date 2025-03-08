@@ -108,14 +108,13 @@ def save_to_csv(category_name: str, data: List[Dict]) -> str:
     print(f"📂 CSV 저장 완료: {file_path}")
     logging.info(f"📂 CSV 저장 완료: {file_path}")
     return file_path
-
-def plot_rank_trend(category_name: str, top_n: int = 5) -> Optional[str]:
+def plot_rank_trend(category_name: str) -> Optional[str]:
     """
     카테고리별 순위 변화 그래프를 생성합니다.
+    최신 크롤링 데이터를 기준으로 상위 10위 상품의 순위 변화만 표시합니다.
     
     Args:
         category_name (str): 카테고리 이름
-        top_n (int): 그래프에 표시할 상위 상품 개수 (기본값: 5)
     
     Returns:
         Optional[str]: 생성된 그래프 파일 경로 또는 None
@@ -149,14 +148,22 @@ def plot_rank_trend(category_name: str, top_n: int = 5) -> Optional[str]:
             logging.warning(f"{category_name}: 유효한 순위 데이터 없음.")
             return None
 
-        # 상품별 등장 횟수 계산 (상위 N개 상품만 표시)
-        product_counts = df['상품명'].value_counts()
-        top_products = product_counts.head(top_n).index
-        df = df[df['상품명'].isin(top_products)]
+        # 최신 크롤링 데이터 기준 상위 10위 상품 추출
+        latest_date = df['날짜'].max()
+        latest_data = df[df['날짜'] == latest_date]
+        top_10_products = latest_data[latest_data['순위'] <= 10]['상품명'].unique()
+
+        if len(top_10_products) == 0:
+            print(f"⚠️ {category_name}: 최신 데이터에서 상위 10위 상품 없음. 그래프 생성 건너뜀.")
+            logging.warning(f"{category_name}: 최신 데이터에서 상위 10위 상품 없음.")
+            return None
+
+        # 상위 10위 상품 데이터만 필터링 (과거 데이터 포함)
+        df = df[df['상품명'].isin(top_10_products)]
 
         if df.empty:
-            print(f"⚠️ {category_name}: 상위 {top_n}개 상품 데이터 없음. 그래프 생성 건너뜀.")
-            logging.warning(f"{category_name}: 상위 {top_n}개 상품 데이터 없음.")
+            print(f"⚠️ {category_name}: 상위 10위 상품 관련 데이터 없음. 그래프 생성 건너뜀.")
+            logging.warning(f"{category_name}: 상위 10위 상품 관련 데이터 없음.")
             return None
 
         # 그래프 생성
@@ -164,7 +171,7 @@ def plot_rank_trend(category_name: str, top_n: int = 5) -> Optional[str]:
         for product in df['상품명'].unique():
             product_data = df[df['상품명'] == product].sort_values('날짜')
             
-            # 데이터가 1개일 경우 (새 상품)
+            # 데이터가 1개일 경우 (최신 데이터만 있는 경우)
             if len(product_data) == 1:
                 plt.plot(product_data['날짜'], product_data['순위'], 'o', label=product)
                 plt.text(product_data['날짜'].iloc[0], product_data['순위'].iloc[0], '신규', 
@@ -177,20 +184,20 @@ def plot_rank_trend(category_name: str, top_n: int = 5) -> Optional[str]:
                     subset = product_data[gaps == gap]
                     if len(subset) > 0:
                         linestyle = '-' if gap == 0 else '--'  # 누락된 구간은 점선으로 표시
-                        plt.plot(subset['날짜'], subset['순위'], marker='o', linestyle=linestyle, label=product if gap == 0 else "")
-        
-        # 순위권 이탈 상품 확인
-        latest_date = df['날짜'].max()
-        recent_data = df[df['날짜'] == latest_date]
+                        plt.plot(subset['날짜'], subset['순위'], marker='o', linestyle=linestyle, 
+                                label=product if gap == 0 else "")
+
+        # 순위권 이탈 상품 확인 (최신 데이터 기준 상위 10위에 없는 경우는 제외)
         for product in df['상품명'].unique():
-            if product not in recent_data['상품명'].values:
-                last_data = df[df['상품명'] == product].sort_values('날짜').iloc[-1]
+            product_data = df[df['상품명'] == product].sort_values('날짜')
+            if product_data['날짜'].max() < latest_date:
+                last_data = product_data.iloc[-1]
                 plt.text(last_data['날짜'], last_data['순위'], '이탈', fontsize=8, ha='left')
                 logging.info(f"{category_name}: 순위권 이탈 상품 감지 - {product}")
 
         # 그래프 설정
         plt.gca().invert_yaxis()
-        plt.title(f"{category_name} 순위 변화 (상위 {top_n} 상품)")
+        plt.title(f"{category_name} 순위 변화 (최신 상위 10위 상품)")
         
         # x축 간격 동적 조정
         time_range = (df['날짜'].max() - df['날짜'].min()).total_seconds() / 3600  # 시간 차이 계산
