@@ -108,6 +108,7 @@ def save_to_csv(category_name: str, data: List[Dict]) -> str:
     print(f"📂 CSV 저장 완료: {file_path}")
     logging.info(f"📂 CSV 저장 완료: {file_path}")
     return file_path
+
 def plot_rank_trend(category_name: str) -> Optional[str]:
     """
     카테고리별 순위 변화 그래프를 생성합니다.
@@ -226,6 +227,26 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
     finally:
         plt.close()  # 메모리 누수 방지
 
+# === ✅ 전체 CSV 파일을 하나의 엑셀 파일로 저장하는 함수 ===
+def save_all_to_excel() -> str:
+    """
+    모든 카테고리의 CSV 파일을 하나의 엑셀 파일로 저장합니다.
+    각 카테고리별 데이터는 해당 이름의 시트에 저장됩니다.
+    
+    Returns:
+        str: 생성된 엑셀 파일 경로
+    """
+    excel_file = f"{CONFIG['csv_dir']}/oliveyoung_best_products.xlsx"
+    with pd.ExcelWriter(excel_file, engine="xlsxwriter") as writer:
+        for category in CONFIG["categories"].keys():
+            csv_path = f"{CONFIG['csv_dir']}/{category}_rankings.csv"
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                df.to_excel(writer, sheet_name=category, index=False)
+    print(f"📂 엑셀 파일 저장 완료: {excel_file}")
+    logging.info(f"📂 엑셀 파일 저장 완료: {excel_file}")
+    return excel_file
+
 # === ✅ 카테고리별 크롤링 함수 ===
 def crawl_category(driver, category_name, xpath):
     try:
@@ -284,9 +305,12 @@ def run_crawling():
     finally:
         driver.quit()
 
+    # 모든 CSV 파일을 하나의 엑셀 파일로 저장
+    excel_file = save_all_to_excel()
+
     try:
         graph_files = [plot_rank_trend(cat) for cat in CONFIG["categories"] if os.path.exists(f"{CONFIG['csv_dir']}/{cat}_rankings.csv")]
-        attachments = csv_files + [g for g in graph_files if g]
+        attachments = csv_files + [g for g in graph_files if g] + [excel_file]
         if attachments:
             print("📂 이메일에 첨부할 파일:", attachments)
             send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", CONFIG["email"]["recipients"], attachments)
