@@ -97,13 +97,29 @@ def send_email_with_attachments(subject, body, to_emails, attachments):
 # === ✅ 데이터 저장 ===
 def save_to_csv(category_name: str, data: List[Dict]) -> str:
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
+
+    # ✅ 카테고리 정보 추가
+    for item in data:
+        item["카테고리"] = category_name
+
     df_new = pd.DataFrame(data)
+
+    # ✅ 원하는 컬럼 순서 지정
+    desired_order = ["날짜", "카테고리", "순위", "브랜드", "상품명"]
+    df_new = df_new[desired_order]
+
     if os.path.exists(file_path):
         df_existing = pd.read_csv(file_path)
+
+        # ✅ 기존 데이터도 컬럼 순서 맞추기
+        if set(desired_order).issubset(df_existing.columns):
+            df_existing = df_existing[desired_order]
+
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
         df_combined.drop_duplicates(subset=["날짜", "상품명"], keep="last", inplace=True)
     else:
         df_combined = df_new
+
     df_combined.to_csv(file_path, index=False, encoding="utf-8-sig")
     print(f"📂 CSV 저장 완료: {file_path}")
     logging.info(f"📂 CSV 저장 완료: {file_path}")
