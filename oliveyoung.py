@@ -125,47 +125,38 @@ def save_to_csv(category_name: str, data: List[Dict]) -> str:
     logging.info(f"📂 CSV 저장 완료: {file_path}")
     return file_path
 
+
 def plot_rank_trend(category_name: str) -> Optional[str]:
-    """
-    카테고리별 순위 변화 그래프를 생성합니다.
-    최신 크롤링 데이터를 기준으로 상위 10위 상품의 순위 변화만 표시합니다.
-    
-    Args:
-        category_name (str): 카테고리 이름
-    
-    Returns:
-        Optional[str]: 생성된 그래프 파일 경로 또는 None
-    """
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
     
-    # 파일 존재 여부 확인
     if not os.path.exists(file_path):
         print(f"⚠️ {file_path} 파일 없음. 그래프 생성 건너뜀.")
         logging.warning(f"{file_path} 파일 없음. 그래프 생성 건너뜀.")
         return None
 
     try:
-        # 데이터 로드 및 전처리
         df = pd.read_csv(file_path)
         
-        # 날짜 형식 변환
+        # ✅ 날짜 형식 변환
         df['날짜'] = pd.to_datetime(df['날짜'], format='%Y-%m-%d %p %I:%M', errors='coerce')
-        if df['날짜'].isna().all():
-            print(f"⚠️ {category_name}: 유효한 날짜 데이터 없음. 그래프 생성 건너뜀.")
-            logging.warning(f"{category_name}: 유효한 날짜 데이터 없음.")
-            return None
-        df = df.dropna(subset=['날짜'])
+        df.dropna(subset=['날짜'], inplace=True)
 
-        # 순위 숫자 변환
+        # ✅ 순위 숫자로 변환
         df['순위'] = pd.to_numeric(df['순위'], errors='coerce')
-        df = df.dropna(subset=['순위'])
+        df.dropna(subset=['순위'], inplace=True)
 
         if df.empty:
-            print(f"⚠️ {category_name}: 유효한 순위 데이터 없음. 그래프 생성 건너뜀.")
-            logging.warning(f"{category_name}: 유효한 순위 데이터 없음.")
+            print(f"⚠️ {category_name}: 유효한 데이터 없음. 그래프 생성 건너뜀.")
+            logging.warning(f"{category_name}: 유효한 데이터 없음.")
             return None
 
-        # 최신 크롤링 데이터 기준 상위 10위 상품 추출
+        # ✅ 하루 4번(10시, 13시, 16시, 19시)만 필터링
+        df['시간'] = df['날짜'].dt.strftime('%H:%M')
+        df['날짜_텍스트'] = df['날짜'].dt.strftime('%Y-%m-%d')  # 날짜 텍스트 추가 (X축 라벨링용)
+        daily_times = ["10:00", "13:00", "16:00", "19:00"]
+        df = df[df['시간'].isin(daily_times)]
+        
+        # ✅ 최신 크롤링 데이터 기준 상위 10위 상품만 추출
         latest_date = df['날짜'].max()
         latest_data = df[df['날짜'] == latest_date]
         top_10_products = latest_data[latest_data['순위'] <= 10]['상품명'].unique()
@@ -175,7 +166,7 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
             logging.warning(f"{category_name}: 최신 데이터에서 상위 10위 상품 없음.")
             return None
 
-        # 상위 10위 상품 데이터만 필터링 (과거 데이터 포함)
+        # ✅ 상위 10위 상품 데이터만 필터링
         df = df[df['상품명'].isin(top_10_products)]
 
         if df.empty:
@@ -183,53 +174,33 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
             logging.warning(f"{category_name}: 상위 10위 상품 관련 데이터 없음.")
             return None
 
-        # 그래프 생성
+        # ✅ X축을 '시간'으로 변경 & 날짜 구분선 추가
+        df['x축_라벨'] = df['날짜_텍스트'] + ' ' + df['시간']  # 날짜 + 시간 조합 (예: '2025-03-18 10:00')
+
         plt.figure(figsize=(12, 6))
         for product in df['상품명'].unique():
             product_data = df[df['상품명'] == product].sort_values('날짜')
-            
-            # 데이터가 1개일 경우 (최신 데이터만 있는 경우)
-            if len(product_data) == 1:
-                plt.plot(product_data['날짜'], product_data['순위'], 'o', label=product)
-                plt.text(product_data['날짜'].iloc[0], product_data['순위'].iloc[0], '신규', 
-                        fontsize=8, ha='right')
-                logging.info(f"{category_name}: 신규 상품 감지 - {product}")
-            else:
-                # 데이터가 여러 개일 경우 선으로 연결
-                gaps = (product_data['날짜'].diff() > pd.Timedelta(hours=8)).cumsum()
-                for gap in range(gaps.max() + 1):
-                    subset = product_data[gaps == gap]
-                    if len(subset) > 0:
-                        linestyle = '-' if gap == 0 else '--'  # 누락된 구간은 점선으로 표시
-                        plt.plot(subset['날짜'], subset['순위'], marker='o', linestyle=linestyle, 
-                                label=product if gap == 0 else "")
+            plt.plot(product_data['x축_라벨'], product_data['순위'], marker='o', linestyle='-', label=product)
 
-        # 순위권 이탈 상품 확인 (최신 데이터 기준 상위 10위에 없는 경우는 제외)
-        for product in df['상품명'].unique():
-            product_data = df[df['상품명'] == product].sort_values('날짜')
-            if product_data['날짜'].max() < latest_date:
-                last_data = product_data.iloc[-1]
-                plt.text(last_data['날짜'], last_data['순위'], '이탈', fontsize=8, ha='left')
-                logging.info(f"{category_name}: 순위권 이탈 상품 감지 - {product}")
-
-        # 그래프 설정
+        # ✅ 그래프 설정
         plt.gca().invert_yaxis()
-        plt.title(f"{category_name} 순위 변화 (최신 상위 10위 상품)")
-        
-        # x축 간격 동적 조정
-        time_range = (df['날짜'].max() - df['날짜'].min()).total_seconds() / 3600  # 시간 차이 계산
-        if time_range < 24:
-            plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
-        else:
-            plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))
+        plt.title(f"{category_name} 순위 변화 (일일 변화)")
+
+        # ✅ X축을 시간대(10:00, 13:00, 16:00, 19:00)만 표시하도록 설정
         plt.xticks(rotation=45, ha='right')
-        plt.xlabel("날짜 및 시간")
+
+        # ✅ X축에 날짜별로 구분선 추가
+        unique_dates = df['날짜_텍스트'].unique()
+        for date in unique_dates:
+            xpos = df[df['날짜_텍스트'] == date].index.min()
+            plt.axvline(x=xpos, color='gray', linestyle='--', linewidth=0.8)
+
+        plt.xlabel("시간대별 순위 변화 (날짜별 구분)")
         plt.ylabel("순위")
         plt.legend(loc="upper left", bbox_to_anchor=(1.05, 1), fontsize=7)
         plt.tight_layout()
 
-        # 그래프 저장
+        # ✅ 그래프 저장
         graph_path = f"{CONFIG['graph_dir']}/{category_name}_rank_trend.png"
         plt.savefig(graph_path, bbox_inches="tight")
         print(f"📊 그래프 저장 완료: {graph_path}")
@@ -242,6 +213,7 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
         return None
     finally:
         plt.close()  # 메모리 누수 방지
+
 
 # === ✅ 전체 CSV 파일을 하나의 엑셀 파일로 저장하는 함수 ===
 def save_all_to_excel() -> str:
