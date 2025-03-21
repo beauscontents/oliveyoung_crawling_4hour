@@ -150,15 +150,17 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
             logging.warning(f"{category_name}: 유효한 데이터 없음.")
             return None
 
+        # ✅ 가장 최신 날짜의 데이터만 선택 (오늘 날짜)
+        latest_date = df['날짜'].dt.date.max()
+        df = df[df['날짜'].dt.date == latest_date]
+
         # ✅ 하루 4번(10시, 13시, 16시, 19시)만 필터링
         df['시간'] = df['날짜'].dt.strftime('%H:%M')
-        df['날짜_텍스트'] = df['날짜'].dt.strftime('%Y-%m-%d')  # 날짜 텍스트 추가 (X축 라벨링용)
         daily_times = ["10:00", "13:00", "16:00", "19:00"]
         df = df[df['시간'].isin(daily_times)]
         
-        # ✅ 최신 크롤링 데이터 기준 상위 10위 상품만 추출
-        latest_date = df['날짜'].max()
-        latest_data = df[df['날짜'] == latest_date]
+        # ✅ 최신 데이터 기준 상위 10위 상품만 추출
+        latest_data = df[df['날짜'].dt.date == latest_date]
         top_10_products = latest_data[latest_data['순위'] <= 10]['상품명'].unique()
 
         if len(top_10_products) == 0:
@@ -174,34 +176,24 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
             logging.warning(f"{category_name}: 상위 10위 상품 관련 데이터 없음.")
             return None
 
-        # ✅ X축을 '시간'으로 변경 & 날짜 구분선 추가
-        df['x축_라벨'] = df['날짜_텍스트'] + ' ' + df['시간']  # 날짜 + 시간 조합 (예: '2025-03-18 10:00')
-
+        # ✅ X축을 '시간'으로 설정 (10:00, 13:00, 16:00, 19:00)
         plt.figure(figsize=(12, 6))
         for product in df['상품명'].unique():
-            product_data = df[df['상품명'] == product].sort_values('날짜')
-            plt.plot(product_data['x축_라벨'], product_data['순위'], marker='o', linestyle='-', label=product)
+            product_data = df[df['상품명'] == product].sort_values('시간')
+            plt.plot(product_data['시간'], product_data['순위'], marker='o', linestyle='-', label=product)
 
         # ✅ 그래프 설정
         plt.gca().invert_yaxis()
-        plt.title(f"{category_name} 순위 변화 (일일 변화)")
+        plt.title(f"{category_name} 순위 변화 ({latest_date})")  # 날짜 추가
 
-        # ✅ X축을 시간대(10:00, 13:00, 16:00, 19:00)만 표시하도록 설정
-        plt.xticks(rotation=45, ha='right')
-
-        # ✅ X축에 날짜별로 구분선 추가
-        unique_dates = df['날짜_텍스트'].unique()
-        for date in unique_dates:
-            xpos = df[df['날짜_텍스트'] == date].index.min()
-            plt.axvline(x=xpos, color='gray', linestyle='--', linewidth=0.8)
-
-        plt.xlabel("시간대별 순위 변화 (날짜별 구분)")
+        plt.xlabel("시간 (HH:MM)")
         plt.ylabel("순위")
+        plt.xticks(rotation=45, ha='right')
         plt.legend(loc="upper left", bbox_to_anchor=(1.05, 1), fontsize=7)
         plt.tight_layout()
 
-        # ✅ 그래프 저장
-        graph_path = f"{CONFIG['graph_dir']}/{category_name}_rank_trend.png"
+        # ✅ 날짜별 파일명 저장
+        graph_path = f"{CONFIG['graph_dir']}/{latest_date}_{category_name}_rank_trend.png"
         plt.savefig(graph_path, bbox_inches="tight")
         print(f"📊 그래프 저장 완료: {graph_path}")
         logging.info(f"📊 그래프 저장 완료: {graph_path}")
@@ -213,6 +205,7 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
         return None
     finally:
         plt.close()  # 메모리 누수 방지
+
 
 
 # === ✅ 전체 CSV 파일을 하나의 엑셀 파일로 저장하는 함수 ===
