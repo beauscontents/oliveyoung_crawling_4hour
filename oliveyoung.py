@@ -95,36 +95,33 @@ def send_email_with_attachments(subject, body, to_emails, attachments):
         logging.error(f"이메일 전송 실패: {e}")
 
 # === ✅ 데이터 저장 ===
-def save_to_csv(category_name: str, data: List[Dict]) -> str:
-    file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
+def save_to_single_csv(data: List[Dict]) -> str:
+    # 하나의 CSV 파일 경로
+    file_path = f"{CONFIG['csv_dir']}/oliveyoung_rankings.csv"
 
-    # ✅ 카테고리 정보 추가
-    for item in data:
-        item["카테고리"] = category_name
-
+    # 날짜 정보를 추가한 데이터를 DataFrame으로 변환
     df_new = pd.DataFrame(data)
 
-    # ✅ 원하는 컬럼 순서 지정
+    # 원하는 컬럼 순서 지정
     desired_order = ["날짜", "카테고리", "순위", "브랜드", "상품명"]
     df_new = df_new[desired_order]
 
+    # 파일이 이미 존재하면 기존 데이터를 불러와서 이어서 추가
     if os.path.exists(file_path):
         df_existing = pd.read_csv(file_path)
 
-        # ✅ 기존 데이터도 컬럼 순서 맞추기
-        if set(desired_order).issubset(df_existing.columns):
-            df_existing = df_existing[desired_order]
-
+        # 기존 데이터와 새로운 데이터를 합침
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
         df_combined.drop_duplicates(subset=["날짜", "상품명"], keep="last", inplace=True)
     else:
+        # 파일이 없으면 새로운 데이터만 저장
         df_combined = df_new
 
+    # 데이터를 CSV로 저장
     df_combined.to_csv(file_path, index=False, encoding="utf-8-sig")
     print(f"📂 CSV 저장 완료: {file_path}")
     logging.info(f"📂 CSV 저장 완료: {file_path}")
     return file_path
-
 
 def plot_rank_trend(category_name: str) -> Optional[str]:
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
@@ -273,25 +270,29 @@ def run_crawling():
         logging.error(f"WebDriver 초기화 실패: {e}")
         return
 
-    csv_files = []
+    all_data = []
     try:
         for category, xpath in CONFIG["categories"].items():
             new_data = crawl_category(driver, category, xpath)
             if new_data:  # 데이터가 있을 경우에만 저장
-                csv_path = save_to_csv(category, new_data)
-                csv_files.append(csv_path)
+                for item in new_data:
+                    item["카테고리"] = category  # 카테고리 추가
+                all_data.extend(new_data)
     except Exception as e:
         print(f"크롤링 중 오류: {e}")
         logging.error(f"크롤링 중 오류: {e}")
     finally:
         driver.quit()
 
-    # 모든 CSV 파일을 하나의 엑셀 파일로 저장
+    # 모든 데이터를 하나의 CSV 파일에 저장
+    csv_file = save_to_single_csv(all_data)
+
+    # 엑셀 파일 및 그래프 생성
     excel_file = save_all_to_excel()
 
     try:
         graph_files = [plot_rank_trend(cat) for cat in CONFIG["categories"] if os.path.exists(f"{CONFIG['csv_dir']}/{cat}_rankings.csv")]
-        attachments = csv_files + [g for g in graph_files if g] + [excel_file]
+        attachments = [csv_file] + [g for g in graph_files if g] + [excel_file]
         if attachments:
             print("📂 이메일에 첨부할 파일:", attachments)
             send_email_with_attachments("올리브영 트렌드 분석", "최신 순위 변화 데이터입니다.", CONFIG["email"]["recipients"], attachments)
@@ -304,7 +305,7 @@ def run_crawling():
 
     print("✅ 자동 크롤링 완료!")
     logging.info("자동 크롤링 완료")
-
+    
 # === ✅ 실행 ===
 if __name__ == "__main__":
     setup_logging()
