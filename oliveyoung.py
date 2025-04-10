@@ -96,32 +96,21 @@ def send_email_with_attachments(subject, body, to_emails, attachments):
 
 # === ✅ 데이터 저장 ===
 def save_to_single_csv(data: List[Dict]) -> str:
-    # 하나의 CSV 파일 경로
     file_path = f"{CONFIG['csv_dir']}/oliveyoung_rankings.csv"
-
-    # 날짜 정보를 추가한 데이터를 DataFrame으로 변환
     df_new = pd.DataFrame(data)
-
-    # 원하는 컬럼 순서 지정
     desired_order = ["날짜", "카테고리", "순위", "브랜드", "상품명"]
     df_new = df_new[desired_order]
 
-    # 파일이 이미 존재하면 기존 데이터를 불러와서 이어서 추가
     if os.path.exists(file_path):
         df_existing = pd.read_csv(file_path)
-
-        # 기존 데이터와 새로운 데이터를 합침
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
         df_combined.drop_duplicates(subset=["날짜", "상품명"], keep="last", inplace=True)
     else:
-        # 파일이 없으면 새로운 데이터만 저장
         df_combined = df_new
 
-    # 데이터를 CSV로 저장
     df_combined.to_csv(file_path, index=False, encoding="utf-8-sig")
-    print(f"📂 CSV 저장 완료: {file_path}")
-    logging.info(f"📂 CSV 저장 완료: {file_path}")
     return file_path
+
 
 def plot_rank_trend(category_name: str) -> Optional[str]:
     file_path = f"{CONFIG['csv_dir']}/{category_name}_rankings.csv"
@@ -190,7 +179,7 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
         plt.tight_layout()
 
         # ✅ 날짜별 파일명 저장
-        graph_path = f"{CONFIG['graph_dir']}/{latest_date}_{category_name}_rank_trend.png"
+        graph_path = f"{CONFIG['graph_dir']}/{category_name}_rank_trend.png"
         plt.savefig(graph_path, bbox_inches="tight")
         print(f"📊 그래프 저장 완료: {graph_path}")
         logging.info(f"📊 그래프 저장 완료: {graph_path}")
@@ -207,13 +196,6 @@ def plot_rank_trend(category_name: str) -> Optional[str]:
 
 # === ✅ 전체 CSV 파일을 하나의 엑셀 파일로 저장하는 함수 ===
 def save_all_to_excel() -> str:
-    """
-    모든 카테고리의 CSV 파일을 하나의 엑셀 파일로 저장합니다.
-    각 카테고리별 데이터는 해당 이름의 시트에 저장됩니다.
-    
-    Returns:
-        str: 생성된 엑셀 파일 경로
-    """
     excel_file = f"{CONFIG['csv_dir']}/oliveyoung_best_products.xlsx"
     with pd.ExcelWriter(excel_file, engine="xlsxwriter") as writer:
         for category in CONFIG["categories"].keys():
@@ -221,9 +203,8 @@ def save_all_to_excel() -> str:
             if os.path.exists(csv_path):
                 df = pd.read_csv(csv_path)
                 df.to_excel(writer, sheet_name=category, index=False)
-    print(f"📂 엑셀 파일 저장 완료: {excel_file}")
-    logging.info(f"📂 엑셀 파일 저장 완료: {excel_file}")
     return excel_file
+
 
 # === ✅ 카테고리별 크롤링 함수 ===
 def crawl_category(driver, category_name, xpath):
